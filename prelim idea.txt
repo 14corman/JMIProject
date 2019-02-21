@@ -1,0 +1,28 @@
+WANT: A model to classify whether an isolate could make someone resistant to beta-lactam drug. The classification would be S, I, or R.
+
+
+Preprossesing: load in all the data, and:
+
+1. convert all genes to -1 (positive) or 1 (negative)
+2. Find and label isolate as containing ESBL (0), containing carbapenemase (1), both (2), or neither (3)
+3. Convert all isolate Amikacin values for each isolate into a -1 (R), 0 (I), or 1 (S)
+4. Find and record all MIC values for the isolates.
+5. Possibly remove any isolates that are missing values (or use dropout latter on inputs while training to train for missing inputs)
+
+Actual input:
+
+All genes from 1
+The value from 2
+MIC s from 4
+
+Label: values from 3
+
+Output: Either -1 (resistant), 0 (Intermediate), or 1 (Susceptible)
+
+
+
+This can all be done easily on a Neural Network. The good thing is we have drugs that are not beta-lactam, so we cannot use those in our training dataset, but we can use them in our test and prove that it should always read -1, or we can make a separate output for 2 (NA) maybe and include these in the dataset.
+
+
+
+If they want an analysis on demographic profiles to find trends with the genetics than we can have 2 people work on that, and combine the 2 to have an analysis on resistant isolates based on certain profiles. However, I feel this is pushing a little, and they may not want that. We would not need any demographic information for the Neural Network, so unless they want this then we would not use that data.
