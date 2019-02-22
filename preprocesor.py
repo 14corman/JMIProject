@@ -6,6 +6,10 @@ Created on Thu Feb 21 20:28:43 2019
 
 import csv
 
+# All start and end positions for required variables in the csv.
+geneStart = 46
+geneEnd = 197
+
 
 def main(debug):
     """
@@ -24,13 +28,27 @@ def main(debug):
             elif line_count > 5 and debug:
                 break
             else:
-                print("Genes: ", getIsotope(row))
+                if testRow(row):
+                    print("Genes: ", getGenes(row))
+                    
                 line_count += 1
                 
         print(f'Processed {line_count} lines.')
+        
+def testRow(row):
+    """
+    This method will take in a row and test all needed values to see if there is
+    something valid in that position. If all required values have are not empty,
+    then the row is valid. The method will return True iff the row is valid, 
+    false otherwise.
+    """
+    for i in range(geneStart, geneEnd):
+        if row[i] == "":
+            return False
 
+    return True
 
-def getIsotope(row):
+def getGenes(row):
     """
     Author: Cory Kromer-Edwards
     Edits by: ...
@@ -40,7 +58,7 @@ def getIsotope(row):
     a ValueError.
     """
     genes = []
-    for i in range(46, 197):
+    for i in range(geneStart, geneEnd):
         if row[i] == "neg":
             genes.append(0)
         elif row[i] == "pos":
