@@ -194,17 +194,6 @@ def getMicValues(row, micBreakpoints):
             mic.append(2)
     return mic
 
-def getMicNames(row):
-    """
-    Author: Andrew West
-    Edits by: ...
-    Gets the MIC names. It returns a list of Stirngs.
-    """
-    mic = []
-    for i in range(micStart, micEnd):
-        mic.append(row[i])
-    return mic
-
 
 
 
