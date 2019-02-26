@@ -183,7 +183,7 @@ def getMicValues(row, micBreakpoints):
     mic = []
     for i in range(micStart, micEnd):
         if row[i] == '':
-            mic.append(0)
+            raise ValueError("MicValue is not specified")
             continue
         micValue = float(row[i])
         if micValue <= micBreakpoints[i][0]:
