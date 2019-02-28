@@ -10,6 +10,9 @@ from preprocessor import load_dataset
 import numpy as np
 import os.path
 
+#For F1 score
+from keras import backend as K
+
 #Tensorboard imports
 from time import time
 from tensorflow.python.keras.callbacks import TensorBoard
@@ -23,6 +26,11 @@ model_path = "saved_models/model.h5"
 
 
 def main():
+    """
+    Author Cory Kromer-Edwards
+    Edits by: ...
+    The main method that will build and run the model.
+    """
     parser = build_parser()
     options = parser.parse_args()
 	
@@ -68,7 +76,7 @@ def main():
         
         model.compile(optimizer="rmsprop", 
                       loss="categorical_crossentropy",
-                      metrics=["accuracy"])
+                      metrics=["accuracy", f1])
     else:
         model = load_model(model_path)
     
@@ -95,7 +103,45 @@ def main():
         print("Predicted Y test output: ", prediction)
 
 
+
+#Code found here: https://stackoverflow.com/a/45305384
+def f1(y_true, y_pred):
+    def recall(y_true, y_pred):
+        """Recall metric.
+
+        Only computes a batch-wise average of recall.
+
+        Computes the recall, a metric for multi-label classification of
+        how many relevant items are selected.
+        """
+        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+        recall = true_positives / (possible_positives + K.epsilon())
+        return recall
+
+    def precision(y_true, y_pred):
+        """Precision metric.
+
+        Only computes a batch-wise average of precision.
+
+        Computes the precision, a metric for multi-label classification of
+        how many selected items are relevant.
+        """
+        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+        precision = true_positives / (predicted_positives + K.epsilon())
+        return precision
+    precision = precision(y_true, y_pred)
+    recall = recall(y_true, y_pred)
+    return 2*((precision*recall)/(precision+recall+K.epsilon()))
+  
+
 def build_parser():
+    """
+    Author Cory Kromer-Edwards
+    Edits by: ...
+    Builds the parser based on input variables from the command line.
+    """
     parser = ArgumentParser()
     parser.add_argument('-b', '--batch_size', type=int,
                         dest='batch_size', help='Batch size',
