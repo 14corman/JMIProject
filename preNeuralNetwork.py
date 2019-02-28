@@ -22,7 +22,10 @@ from keras.models import load_model
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 #Model path
-model_path = "saved_models/model.h5"
+model_name = "model.h5"
+model_dir = "saved_models"
+model_path = model_dir + "/" + model_name
+log_dir = "logs"
 
 
 def main():
@@ -33,40 +36,54 @@ def main():
     """
     parser = build_parser()
     options = parser.parse_args()
+    
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+        
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+        
+        
+    #Collect the dataset. Input is boolean for whether to debug which we need to be
+    #set to false.
+    (X, Y) = load_dataset(False)
+    
+    if options.debug:
+        print("Orignial X shape: ", X.shape)
+        print("Orignial Y shape: ", Y.shape)
+        test_index = 23
+        print("X at 23: ", X[test_index])
+        print("Ys at 23: ", Y[test_index])
+        
+    #Turn Y into a one hot vector
+    Y = utils.to_categorical(Y, num_classes=4)
+    
+    #Uniformly randomly select train, validation, and test sets
+    num_datapoints = X.shape[0]
+    train_ind = np.random.choice(num_datapoints, int(num_datapoints * 0.7))
+    val_ind = np.random.choice(num_datapoints, int(num_datapoints * 0.2))
+    test_ind = np.random.choice(num_datapoints, int(num_datapoints * 0.1))
+    
+    x_train = X[train_ind, :]
+    x_val = X[val_ind, :]
+    x_test = X[test_ind, :]
+    
+    y_train = Y[train_ind, :]
+    y_val = Y[val_ind, :]
+    y_test = Y[test_ind, :]
+    
+    if options.debug:
+        print("")
+        print("x train shape: ", x_train.shape)
+        print("x val shape: ", x_val.shape)
+        print("x test shape: ", x_test.shape)
+        
+        print("y train shape: ", y_train.shape)
+        print("y val shape: ", y_val.shape)
+        print("y test shape: ", y_test.shape)
+        print("")
 	
-    if not os.path.isfile(model_path):
-        #Collect the dataset. Input is boolean for whether to debug which we need to be
-        #set to false.
-        (X, Y) = load_dataset(False)
-            
-        #Turn Y into a one hot vector
-        Y = utils.to_categorical(Y, num_classes=4)
-        
-        #Uniformly randomly select train, validation, and test sets
-        num_datapoints = X.shape[0]
-        train_ind = np.random.choice(num_datapoints, int(num_datapoints * 0.7))
-        val_ind = np.random.choice(num_datapoints, int(num_datapoints * 0.2))
-        test_ind = np.random.choice(num_datapoints, int(num_datapoints * 0.1))
-        
-        x_train = X[train_ind, :, :]
-        x_val = X[val_ind, :, :]
-        x_test = X[test_ind, :, :]
-        
-        y_train = Y[train_ind, :]
-        y_val = Y[val_ind, :]
-        y_test = Y[test_ind, :]
-        
-        if options.debug:
-            print("")
-            print("x train shape: ", x_train.shape)
-            print("x val shape: ", x_val.shape)
-            print("x test shape: ", x_test.shape)
-            
-            print("y train shape: ", y_train.shape)
-            print("y val shape: ", y_val.shape)
-            print("y test shape: ", y_test.shape)
-            print("")
-        
+    if not os.path.isfile(model_path):        
         model = models.Sequential()
         for i in range(len(options.layers)):
             model.add(layers.Dense(options.layers[i], activation="relu"))
@@ -78,11 +95,11 @@ def main():
                       loss="categorical_crossentropy",
                       metrics=["accuracy", f1])
     else:
-        model = load_model(model_path)
+        model = load_model(model_path, custom_objects={'f1': f1})
     
     #To run tensorboard, run this line in your terminal:
     #tensorboard --logdir=logs/
-    tensor_board = TensorBoard(log_dir="logs/{}".format(time()))
+    tensor_board = TensorBoard(log_dir = log_dir+"/{}".format(time()))
     
     #Will save the model every epoch if it is the best model so far in terms of validation accuracy.
     model_checkpoint = ModelCheckpoint(model_path, monitor='val_acc', save_best_only=True, mode='auto', period=1)

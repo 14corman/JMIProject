@@ -7,6 +7,7 @@ Created on Thu Feb 21 20:28:43 2019
 import csv
 import xlrd     #If you need to install, use "pip install xlrd"
 import os
+import numpy as np
 
 # All start and end positions for required variables in the csv.
 geneStart = 46
@@ -56,6 +57,10 @@ def load_dataset(d):
                     mics = getMicValues(row, micBreakpoints, betaDrugs, drugNames)
                     
                     #Append X and Y for dataset
+                    for i in range(len(mics)):
+                        X.append([*isolate, convertedEsblCarba])
+                        Y.append(mics[i])
+                    
                     
                     if debug:
                         print("\nRow number " + str(lineCount))
@@ -67,7 +72,7 @@ def load_dataset(d):
                 lineCount += 1
                 
         print(f'Processed {lineCount} lines.')
-    return (X, Y)
+    return (np.asarray(X, dtype=np.float32), np.asarray(Y, dtype=np.float32))
 
 def main():
     load_dataset(True)
