@@ -14,6 +14,7 @@ geneEnd = 197
 
 micStart = 19   # 0 indexing
 micEnd = 45
+emptyMics = {20, 24, 28, 31, 35, 41}
 
 #The path to Required Information for Analysis.xlsx
 reqInformationPath = os.getcwd() + "/Required Information for Analysis.xlsx"
@@ -34,10 +35,10 @@ def main():
     with open('dataset.csv') as csvFile:
         csvReader = csv.reader(csvFile, delimiter=',')
         lineCount = 0
-        (esblNames, carbaNames, micBreakpoints) = getEsblCarba()
+        (esblNames, carbaNames, micBreakpoints, betaDrugs) = getRequiredInfo()
         for row in csvReader:
             if lineCount == 0:
-                isolateNames = getIsolate(row)
+                (isolateNames, drugNames) = getNames(row)
                 if debug:
                     print(f'Column names are:\n{", ".join(row)}')
                 lineCount += 1
@@ -47,13 +48,13 @@ def main():
                 if testRow(row):
                     isolate = getGenes(row)
                     convertedEsblCarba = convertEsblCarba(isolateNames, esblNames, carbaNames, isolate)
-                    mics = getMicValues(row, micBreakpoints)
+                    mics = getMicValues(row, micBreakpoints, betaDrugs, drugNames)
                     
                     if debug:
                         print("\nRow number " + str(lineCount))
                         print("Genes: ", isolate)
-                        print("ESBL, Carba: ", convertedEsblCarba)
-                        print("MICs: ", mics)
+                        print("ESBL, Carba: ", convertedEsblCarba, " - ", ["ESBL", "Carba.", "both", "neither"][convertedEsblCarba])
+                        print("MICs: ", mics, " - ", [["NA", "R", "I", "S"][mic] for mic in mics])
                         
                     
                 lineCount += 1
@@ -69,41 +70,59 @@ def testRow(row):
     then the row is valid. The method will return True iff the row is valid, 
     false otherwise.
     """
+    #Make sure the row has all genes available.
     for i in range(geneStart, geneEnd):
         if row[i] == "":
+            return False
+          
+    #Make sure the row has all MIC values available.
+    for i in range(micStart, micEnd):
+        if row[i] == "" and i not in emptyMics:
             return False
 
     return True
   
-def getIsolate(row):
+def getNames(row):
     """
     Author: Cory Kromer-Edwards
     Edits by: ...
-    Gets the gene names that then form an isolate. It returns a list of Stirngs.
+    Gets the gene names that then form an isolate, and drug names for MIC values. It returns lists of Stirngs.
     """
     isolate = []
+    drugNames = []
+    
     for i in range(geneStart, geneEnd):
         isolate.append(row[i])
         
-    return isolate
+    for i in range(micStart, micEnd):
+        drugNames.append(row[i])
+        
+    return (isolate, drugNames)
   
-def getEsblCarba():
+def getRequiredInfo():
     """
     Author: Cory Kromer-Edwards
     Edits by: Andrew West
-    Gets the esbl and carba. groups from the required information excel workbook,
-    and puts the categories into sets and returns those sets.
+    Gets all required information from the Required info excel sheet. This would 
+    include the ESBL group, carab. group, and MIC break points.
     """
     if debug:
         print(reqInformationPath + "\n")
         
     esbl = set()
     carba = set()
+    betaDrugs = set()
     mic = []
+    
     wb = xlrd.open_workbook((reqInformationPath)) 
+    sheet_0 = wb.sheet_by_index(0)
     sheet_2 = wb.sheet_by_index(2)
     sheet_3 = wb.sheet_by_index(3)
 
+    #range is (row start, row end) of the excel sheet, and it starts at 0.
+    for i in range(1, 20):
+        betaDrugs.add(sheet_0.cell_value(i, 1))
+        
     for i in range(1, 48):
         mic.append((sheet_3.cell_value(i, 1), sheet_3.cell_value(i, 2)))
       
@@ -113,7 +132,7 @@ def getEsblCarba():
     for i in range(1, 585): 
         carba.add(sheet_2.cell_value(i, 1))
                 
-    return (esbl, carba, mic)
+    return (esbl, carba, mic, betaDrugs)
   
   
 def convertEsblCarba(isolateNames, esbl, carba, isolate):
@@ -143,13 +162,13 @@ def convertEsblCarba(isolateNames, esbl, carba, isolate):
             break
     
     if not esblBool and not carbaBool:
-        return 3
+        return 3  #Neither
     elif esblBool and carbaBool:
-        return 2
+        return 2  #Both
     elif esblBool:
-      return 0
+      return 0    #ESBL
     else:
-      return 1
+      return 1    #Carba.
 
 def getGenes(row):
     """
@@ -171,27 +190,33 @@ def getGenes(row):
     
     return genes
 
-def getMicValues(row, micBreakpoints):
+def getMicValues(row, micBreakpoints, betaDrugs, drugNames):
     """
     Author: Andrew West
-    Edits by: ...
+    Edits by: Cory Kromer-Edwards
     getMicValues takes in the row from the csv, and extracts the mic values from
     the row. It then comapres their value value to the breakpoints for that MIC.
-    It returns _ if less than or equal to the lower breakpoint, 2 if in between
-    the breakpoints, and _ if greater than or equal to the upper breakpoint
+    It returns 3 if less than or equal to the lower breakpoint, 2 if in between
+    the breakpoints, and 1 if greater than or equal to the upper breakpoint
     """
     mic = []
     for i in range(micStart, micEnd):
-        if row[i] == '':
+        if row[i] == '' and i not in emptyMics:
             raise ValueError("MicValue is not specified")
             continue
+        if i in emptyMics:
+            continue
+          
         micValue = float(row[i])
-        if micValue <= micBreakpoints[i][0]:
-            mic.append(3)
+        
+        if drugNames[i - micStart] not in betaDrugs:
+            mic.append(0) #NA
+        elif micValue <= micBreakpoints[i][0]:
+            mic.append(3) #S
         elif micValue >= micBreakpoints[i][1]:
-            mic.append(1)
+            mic.append(1) #R
         else:
-            mic.append(2)
+            mic.append(2) #I
     return mic
 
 
