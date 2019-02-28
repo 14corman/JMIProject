@@ -19,19 +19,22 @@ emptyMics = {20, 24, 28, 31, 35, 41}
 #The path to Required Information for Analysis.xlsx
 reqInformationPath = os.getcwd() + "/Required Information for Analysis.xlsx"
 
-#To debug output
-debug = True
+#To debug file
+debug = False
 
 
 
-
-def main():
+def load_dataset(d):
     """
     Author Cory Kromer-Edwards
     Edits by: Andrew West
     The main method to preprocessing. This method will open the dataset csv
     file, and send each row to the preprocessing steps.
     """
+    debug = d
+    X = []
+    Y = []
+    
     with open('dataset.csv') as csvFile:
         csvReader = csv.reader(csvFile, delimiter=',')
         lineCount = 0
@@ -46,9 +49,13 @@ def main():
                 break
             else:
                 if testRow(row):
+                  
+                    #Get all data for row.
                     isolate = getGenes(row)
                     convertedEsblCarba = convertEsblCarba(isolateNames, esblNames, carbaNames, isolate)
                     mics = getMicValues(row, micBreakpoints, betaDrugs, drugNames)
+                    
+                    #Append X and Y for dataset
                     
                     if debug:
                         print("\nRow number " + str(lineCount))
@@ -60,6 +67,11 @@ def main():
                 lineCount += 1
                 
         print(f'Processed {lineCount} lines.')
+    return (X, Y)
+
+def main():
+    load_dataset(True)
+    
         
 def testRow(row):
     """
