@@ -9,12 +9,15 @@ import keras.utils as utils
 from preprocessor import load_dataset
 import numpy as np
 import os.path
+import matplotlib.pyplot as plt
+from keras.optimizers import Adam
+from predict import pred
 
 #For F1 score
 from keras import backend as K
 
 #Tensorboard imports
-from time import time
+import time
 from tensorflow.python.keras.callbacks import TensorBoard
 
 #To load and save models
@@ -22,9 +25,7 @@ from keras.models import load_model
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 #Model path
-model_name = "model.h5"
 model_dir = "saved_models"
-model_path = model_dir + "/" + model_name
 log_dir = "logs"
 
 
@@ -43,17 +44,38 @@ def main():
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
         
+    
+    model_name = "model" + ",".join(str(x) for x in options.layers) + " d-" + str(options.dropout_prob) + " lr-" + str(options.learning_rate)
+    
+    model_path = model_dir + "/" + model_name + ".h5"
+        
         
     #Collect the dataset. Input is boolean for whether to debug which we need to be
     #set to false.
-    (X, Y) = load_dataset(False)
+    (X, Y) = load_dataset(options.debug > 4)
+       
+    if options.debug > 3:
+        plt.hist(Y, bins = [0, 1, 2, 3, 4]) 
+        plt.title("histogram") 
+        plt.show()
     
-    if options.debug:
+    if options.debug > 1:
+        print("")
         print("Orignial X shape: ", X.shape)
         print("Orignial Y shape: ", Y.shape)
-        test_index = 23
-        print("X at 23: ", X[test_index])
-        print("Ys at 23: ", Y[test_index])
+        print("")
+        if options.debug > 2:
+            test_index = 23
+            print("")
+            print("X at 23: ", X[test_index])
+            print("Y at 23: ", Y[test_index])
+            print("")
+          
+    
+    #Normalize X values
+#    minCol = np.min(X, axis=0)
+#    maxMinCol = np.max(X, axis=0) - minCol
+#    X = (X - minCol) / maxMinCol
         
     #Turn Y into a one hot vector
     Y = utils.to_categorical(Y, num_classes=4)
@@ -68,11 +90,11 @@ def main():
     x_val = X[val_ind, :]
     x_test = X[test_ind, :]
     
-    y_train = Y[train_ind, :]
-    y_val = Y[val_ind, :]
-    y_test = Y[test_ind, :]
+    y_train = Y[train_ind]
+    y_val = Y[val_ind]
+    y_test = Y[test_ind]
     
-    if options.debug:
+    if options.debug > 2:
         print("")
         print("x train shape: ", x_train.shape)
         print("x val shape: ", x_val.shape)
@@ -91,33 +113,33 @@ def main():
             
         model.add(layers.Dense(4, activation="softmax"))
         
-        model.compile(optimizer="rmsprop", 
+        model.compile(optimizer=Adam(lr=options.learning_rate), #"rmsprop", 
                       loss="categorical_crossentropy",
                       metrics=["accuracy", f1])
     else:
         model = load_model(model_path, custom_objects={'f1': f1})
+        if options.debug > 0:
+            print("model loaded sucessfully")
     
     #To run tensorboard, run this line in your terminal:
     #tensorboard --logdir=logs/
-    tensor_board = TensorBoard(log_dir = log_dir+"/{}".format(time()))
+    tensor_board = TensorBoard(log_dir=log_dir+"/{0}_{1}".format(time.asctime(time.localtime(time.time())).replace(":", "-"), model_name))
     
-    #Will save the model every epoch if it is the best model so far in terms of validation accuracy.
-    model_checkpoint = ModelCheckpoint(model_path, monitor='val_acc', save_best_only=True, mode='auto', period=1)
+    #Will save the model every epoch if it is the best model so far in terms of validation f1 score.
+    model_checkpoint = ModelCheckpoint(model_path, monitor='val_f1', save_best_only=True, mode='auto', period=1)
     
     model.fit(x_train, y_train, epochs=options.num_epochs, batch_size=options.batch_size,
               validation_data=(x_val, y_val), callbacks=[tensor_board, model_checkpoint])
     
-    accuracy = model.evaluate(x_test, y_test, batch_size=options.batch_size)
-    print("Test accuracy: ", accuracy[1])
+    results = model.evaluate(x_test, y_test, batch_size=options.batch_size)
+    print("Test (accuracy, f1, loss): ", results)
 	
-    if options.debug:
+    if options.debug > 1:
         print("")
-        print(model.summary())
-        drug_index = 23
-        print("Actual Y test: ", np.argmax(y_test[drug_index]))
-        prediction = model.predict(x_test)[drug_index]
-        print("Predicted max Y test: ", np.argmax(prediction))
-        print("Predicted Y test output: ", prediction)
+        if options.debug > 2:
+            print(model.summary())
+            
+        pred(1, model_path)
 
 
 
@@ -163,15 +185,23 @@ def build_parser():
     parser.add_argument('-b', '--batch_size', type=int,
                         dest='batch_size', help='Batch size',
                         metavar='BATCH_SIZE', default=64)
+    
+    parser.add_argument('-r', '--learning_rate', type=float,
+                        dest='learning_rate', help='Learning rate',
+                        metavar='LEARNING_RATE', default=0.001)
+    
     parser.add_argument('-n', '--num_epochs', type=int,
                         dest='num_epochs', help='Number of epochs',
                         metavar='NUM_EPOCHS', default=5)
-    parser.add_argument('--debug', type=bool,
-                        dest='debug', help='Print debug, and extra, information',
-                        metavar='DEBUG', default=False)
+    
+    parser.add_argument('--debug', type=int,
+                        dest='debug', help='Print debug, and extra, information. Values [1-5)',
+                        metavar='DEBUG', default=1)
+    
     parser.add_argument('-d', '--dropout_prob', type=float,
                         dest='dropout_prob', help='The keep probability in the dropout layer. (1=no drop out)',
                         metavar='DROPOUT', default=0.5)
+    
     parser.add_argument('-l', '--layers', type=int,
                         dest='layers', help='The number of elements given is the number of hidden layers, and the \
                           integer given for each layer is the number of neurons.',

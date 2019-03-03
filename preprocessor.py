@@ -8,6 +8,8 @@ import csv
 import xlrd     #If you need to install, use "pip install xlrd"
 import os
 import numpy as np
+import math
+import random
 
 # All start and end positions for required variables in the csv.
 geneStart = 46
@@ -15,7 +17,7 @@ geneEnd = 197
 
 micStart = 19   # 0 indexing
 micEnd = 45
-emptyMics = {20, 24, 28, 31, 35, 41}
+#emptyMics = {20, 24, 28, 31, 35, 41}
 
 #The path to Required Information for Analysis.xlsx
 reqInformationPath = os.getcwd() + "/Required Information for Analysis.xlsx"
@@ -25,7 +27,7 @@ debug = False
 
 
 
-def load_dataset(d):
+def load_dataset(d, rowNum=None, predict=False):
     """
     Author Cory Kromer-Edwards
     Edits by: Andrew West
@@ -50,23 +52,36 @@ def load_dataset(d):
                 break
             else:
                 if testRow(row):
+                    
+                    if rowNum and rowNum == lineCount:
+                        X = []
+                        Y = []
                   
                     #Get all data for row.
                     isolate = getGenes(row)
-                    convertedEsblCarba = convertEsblCarba(isolateNames, esblNames, carbaNames, isolate)
-                    mics = getMicValues(row, micBreakpoints, betaDrugs, drugNames)
+                    (convertedEsblCarba, numCategory) = convertEsblCarba(isolateNames, esblNames, carbaNames, isolate)
+                    (mics, actualMics) = getMicValues(row, micBreakpoints, betaDrugs, drugNames)
                     
                     #Append X and Y for dataset
                     for i in range(len(mics)):
-                        X.append([*isolate, convertedEsblCarba])
-                        Y.append(mics[i])
+                        if ((mics[i][0] == 0 and random.random() < 0.1) \
+                          or (mics[i][0] == 1 and random.random() < 0.15) \
+                          or mics[i][0] == 2 \
+                          or (mics[i][0] == 3 and random.random() < 0.15)) or predict:
+                            X.append([convertedEsblCarba, mics[i][1], numCategory]) #, actualMics[i]])
+                            Y.append(mics[i][0])
                     
                     
-                    if debug:
+                    if debug or (rowNum and rowNum == lineCount):
                         print("\nRow number " + str(lineCount))
                         print("Genes: ", isolate)
                         print("ESBL, Carba: ", convertedEsblCarba, " - ", ["ESBL", "Carba.", "both", "neither"][convertedEsblCarba])
-                        print("MICs: ", mics, " - ", [["NA", "R", "I", "S"][mic] for mic in mics])
+                        print("Num genes ESBL or Carba: ", str(numCategory))
+                        print("MICs: ", mics, " - ", [["NA", "R", "I", "S"][mic] + "/" + str(drugId) for mic, drugId in mics])
+                        print("Actual MIC values: [", [str(actualMic) + "," for actualMic in actualMics], "]")
+                        
+                    if rowNum and rowNum == lineCount:
+                        return (np.asarray(X, dtype=np.float32), np.asarray(Y, dtype=np.float32))
                         
                     
                 lineCount += 1
@@ -90,11 +105,6 @@ def testRow(row):
     #Make sure the row has all genes available.
     for i in range(geneStart, geneEnd):
         if row[i] == "":
-            return False
-          
-    #Make sure the row has all MIC values available.
-    for i in range(micStart, micEnd):
-        if row[i] == "" and i not in emptyMics:
             return False
 
     return True
@@ -129,7 +139,7 @@ def getRequiredInfo():
     esbl = set()
     carba = set()
     betaDrugs = set()
-    mic = []
+    mic = dict()
     
     wb = xlrd.open_workbook((reqInformationPath)) 
     sheet_0 = wb.sheet_by_index(0)
@@ -141,7 +151,7 @@ def getRequiredInfo():
         betaDrugs.add(sheet_0.cell_value(i, 1))
         
     for i in range(1, 48):
-        mic.append((sheet_3.cell_value(i, 1), sheet_3.cell_value(i, 2)))
+        mic[sheet_3.cell_value(i, 0)] = (sheet_3.cell_value(i, 1), sheet_3.cell_value(i, 2))
       
     for i in range(1, 424): 
         esbl.add(sheet_2.cell_value(i, 0))
@@ -163,29 +173,32 @@ def convertEsblCarba(isolateNames, esbl, carba, isolate):
     """
     esblBool = False
     carbaBool = False
+    numGenesInGroup = 0
     for i in range(len(isolate)):
         if isolate[i] == 1:
             if isolateNames[i] in esbl:
+                numGenesInGroup += 1
                 esblBool = True
                 if debug:
                     print(isolateNames[i])
                 
             if isolateNames[i] in carba:
+                numGenesInGroup += 1
                 carbaBool = True
                 if debug:
                     print(isolateNames[i])
                 
-        if esblBool and carbaBool:
-            break
+#        if esblBool and carbaBool:
+#            break
     
     if not esblBool and not carbaBool:
-        return 3  #Neither
+        return (3, numGenesInGroup)  #Neither
     elif esblBool and carbaBool:
-        return 2  #Both
+        return (2, numGenesInGroup)  #Both
     elif esblBool:
-      return 0    #ESBL
+      return (0, numGenesInGroup)    #ESBL
     else:
-      return 1    #Carba.
+      return (1, numGenesInGroup)    #Carba.
 
 def getGenes(row):
     """
@@ -217,24 +230,24 @@ def getMicValues(row, micBreakpoints, betaDrugs, drugNames):
     the breakpoints, and 1 if greater than or equal to the upper breakpoint
     """
     mic = []
+    actualMic = []
     for i in range(micStart, micEnd):
-        if row[i] == '' and i not in emptyMics:
-            raise ValueError("MicValue is not specified")
-            continue
-        if i in emptyMics:
+        if row[i] == '':
             continue
           
         micValue = float(row[i])
         
         if drugNames[i - micStart] not in betaDrugs:
-            mic.append(0) #NA
-        elif micValue <= micBreakpoints[i][0]:
-            mic.append(3) #S
-        elif micValue >= micBreakpoints[i][1]:
-            mic.append(1) #R
+            mic.append((0, i - micStart)) #NA
+        elif micValue <= micBreakpoints[drugNames[i - micStart]][0]:
+            mic.append((3, i - micStart)) #S
+        elif micValue >= micBreakpoints[drugNames[i - micStart]][1]:
+            mic.append((1, i - micStart)) #R
         else:
-            mic.append(2) #I
-    return mic
+            mic.append((2, i - micStart)) #I
+            
+        actualMic.append(micValue) #math.log(micValue, 2))
+    return (mic, actualMic)
 
 
 
