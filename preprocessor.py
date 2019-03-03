@@ -9,6 +9,7 @@ import xlrd     #If you need to install, use "pip install xlrd"
 import os
 import numpy as np
 import math
+import random
 
 # All start and end positions for required variables in the csv.
 geneStart = 46
@@ -26,7 +27,7 @@ debug = False
 
 
 
-def load_dataset(d, rowNum=None):
+def load_dataset(d, rowNum=None, predict=False):
     """
     Author Cory Kromer-Edwards
     Edits by: Andrew West
@@ -63,8 +64,12 @@ def load_dataset(d, rowNum=None):
                     
                     #Append X and Y for dataset
                     for i in range(len(mics)):
-                        X.append([convertedEsblCarba, mics[i][1], numCategory]) #, actualMics[i]])
-                        Y.append(mics[i][0])
+                        if ((mics[i][0] == 0 and random.random() < 0.1) \
+                          or (mics[i][0] == 1 and random.random() < 0.15) \
+                          or mics[i][0] == 2 \
+                          or (mics[i][0] == 3 and random.random() < 0.15)) or predict:
+                            X.append([convertedEsblCarba, mics[i][1], numCategory]) #, actualMics[i]])
+                            Y.append(mics[i][0])
                     
                     
                     if debug or (rowNum and rowNum == lineCount):
