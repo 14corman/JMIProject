@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 from preprocessor import load_dataset
 import numpy as np
 import random
+import tensorflow as tf
 
 #For F1 score
 from keras import backend as K
@@ -42,24 +43,60 @@ def pred(num_subjects, model_path):
     Edits by: ...
     The main method that will build and run the model.
     """
-    model = load_model(model_path, custom_objects={'f1': f1})
-    print("model loaded sucessfully")
-	
-    for _ in range(num_subjects):
-        print("")
-        data_point = random.randint(1, 4300)
-        (X_subject, Y_subject) = load_dataset(False, data_point, True)
-        print("Looking at person on row: ", data_point + 1)
-        prediction = model.predict(X_subject)
-        for drug_id in range(len(X_subject)):
-            print("Drug id: ", X_subject[drug_id, 1])
-            print("Actual Y: ", Y_subject[drug_id])
-            print("Predicted max Y: ", np.argmax(prediction[drug_id]))
-            print("Predicted Y output: ", prediction[drug_id])
-            print("")
+    count = 0
+    count_right = 0
     
+    #Need to call initialize global variables in case running on GPU.
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        model = load_model(model_path, custom_objects={'f1': f1, 'recall': recall, 'precision': precision})
+        print("model loaded sucessfully")
+	
+        for _ in range(num_subjects):
+            print("")
+            data_point = random.randint(1, 4300)
+            (X_subject, Y_subject) = load_dataset(False, data_point, True)
+            print("Looking at person on row: ", data_point + 1)
+            prediction = model.predict(X_subject)
+            for drug_id in range(len(X_subject)):
+                print("Drug id: ", X_subject[drug_id, 1])
+                print("Actual Y: ", Y_subject[drug_id])
+                print("Predicted max Y: ", np.argmax(prediction[drug_id]))
+                print("Predicted Y output: ", prediction[drug_id])
+                print("")
+                count += 1
+                if Y_subject[drug_id] == np.argmax(prediction[drug_id]):
+                    count_right += 1
+    
+    print("Acurracy: ", (count_right / count))
 
 #Code found here: https://stackoverflow.com/a/45305384
+def recall(y_true, y_pred):
+    """Recall metric.
+    
+    Only computes a batch-wise average of recall.
+    
+    Computes the recall, a metric for multi-label classification of
+    how many relevant items are selected.
+    """
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+    recall = true_positives / (possible_positives + K.epsilon())
+    return recall
+  
+def precision(y_true, y_pred):
+    """Precision metric.
+    
+    Only computes a batch-wise average of precision.
+    
+    Computes the precision, a metric for multi-label classification of
+    how many selected items are relevant.
+    """
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+    precision = true_positives / (predicted_positives + K.epsilon())
+    return precision
+  
 def f1(y_true, y_pred):
     def recall(y_true, y_pred):
         """Recall metric.
