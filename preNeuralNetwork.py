@@ -58,7 +58,7 @@ def main():
     if not os.path.exists(csv_dir):
         os.makedirs(csv_dir)
         
-    for drop_out in [0.0, 0.2, 0.4, 0.6, 0.8, 1]:
+    for drop_out in [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]:
         for learning_rate in [0.0001, 0.001, 0.01, 0.1]:
             model_name = "model" + ",".join(str(x) for x in options.layers) + " d-" + str(drop_out) + " lr-" + str(learning_rate)
             
@@ -85,13 +85,7 @@ def main():
                     print("X at 23: ", X[test_index])
                     print("Y at 23: ", Y[test_index])
                     print("")
-                  
-            
-            #Normalize X values
-        #    minCol = np.min(X, axis=0)
-        #    maxMinCol = np.max(X, axis=0) - minCol
-        #    X = (X - minCol) / maxMinCol
-                
+                                  
             #Turn Y into a one hot vector
             Y = utils.to_categorical(Y, num_classes=4)
             
@@ -122,18 +116,25 @@ def main():
         	
             if not os.path.isfile(model_path):        
                 model = models.Sequential()
-                model.add(layers.BatchNormalization(axis=0, input_shape=(3,)))
-                for i in range(len(options.layers)):
-                    model.add(layers.Dense(options.layers[i], activation="relu"))
+                model.add(layers.Dense(options.layers[0], input_dim=3))
+                model.add(layers.BatchNormalization(axis=1))
+                model.add(layers.Activation("relu"))
+                model.add(layers.Dropout(drop_out))
+                for i in range(len(options.layers) - 1):
+                    model.add(layers.Dense(options.layers[i + 1]))
+                    model.add(layers.BatchNormalization(axis=1))
+                    model.add(layers.Activation("relu"))
                     model.add(layers.Dropout(drop_out))
                     
-                model.add(layers.Dense(4, activation="softmax"))
+                model.add(layers.Dense(4))
+                model.add(layers.BatchNormalization(axis=1))
+                model.add(layers.Activation("softmax"))
                 
                 model.compile(optimizer=Adam(lr=learning_rate), #"rmsprop", 
                               loss="categorical_crossentropy",
                               metrics=["accuracy", f1, recall, precision])
             else:
-                model = load_model(model_path, custom_objects={'f1': f1})
+                model = load_model(model_path, custom_objects={'f1': f1, 'recall': recall, 'precision': precision})
                 if options.debug > 0:
                     print("model loaded sucessfully")
             
