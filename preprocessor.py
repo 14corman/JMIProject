@@ -87,6 +87,11 @@ def load_dataset(d, rowNum=None, predict=False, export=False):
                         isolate = getGenes(row)
                         (convertedEsblCarba, numCategory) = convertEsblCarba(isolateNames, esblNames, carbaNames, isolate)
                         (mics, actualMics) = getMicValues(row, micBreakpoints, betaDrugs, drugNames)
+
+                        age = getAgeBin(row)
+                        sex = 0 if row[sexIndex] == "M" else 1
+                        site = siteCodes.index(int(row[siteIndex]))
+                        state = states.index(row[stateIndex]) if row[stateIndex] != "" else -1
                         
                         if debug or (rowNum and rowNum == lineCount):
                             print("\nRow number " + str(lineCount))
@@ -95,12 +100,9 @@ def load_dataset(d, rowNum=None, predict=False, export=False):
                             print("Num genes ESBL or Carba: ", str(numCategory))
                             print("MICs: ", mics, " - ", [["NA", "R", "I", "S"][mic] + "/" + str(drugId) for mic, drugId in mics])
                             print("Actual MIC values: [", [str(actualMic) + "," for actualMic in actualMics], "]")
+                            print("Age:", str(age) + "; Sex: ", str(row[sexIndex]) + "; Site: ", str(site) + "; State: ", state)
                         
                         if export:
-                            age = getAgeBin(row)
-                            sex = 0 if row[sexIndex] == "M" else 1
-                            site = siteCodes.index(int(row[siteIndex]))
-                            state = states.index(row[stateIndex]) if row[stateIndex] != "" else -1
                             
                             formatted.write(formatedLines, 0, site)
                             formatted.write(formatedLines, 1, state)
@@ -130,7 +132,7 @@ def load_dataset(d, rowNum=None, predict=False, export=False):
                         else:
                             #Append X and Y for dataset
                             for i in range(len(mics)):
-                                X.append([convertedEsblCarba, mics[i][1], numCategory])
+                                X.append([convertedEsblCarba, mics[i][1], numCategory, site, age])
                                 Y.append(mics[i][0])
                                 
                             if rowNum and rowNum == lineCount:
@@ -195,8 +197,6 @@ def getAgeBin(row):
     Takes the age of a subject and places them in the correct bin.
     """
     age = int(row[ageIndex])
-    if debug:
-        print("Age: ", age)
         
     #Pick 1 of 20 bins
     if age >= 0 and age < 5:
