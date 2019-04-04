@@ -42,7 +42,7 @@ debug = False
 
 
 
-def load_dataset(d, rowNum=None, predict=False, export=False):
+def load_dataset(d, rowNum=None, predict=False, export=False, postAnalysisNN=False):
     """
     Author Cory Kromer-Edwards
     Edits by: Andrew West
@@ -132,7 +132,10 @@ def load_dataset(d, rowNum=None, predict=False, export=False):
                         else:
                             #Append X and Y for dataset
                             for i in range(len(mics)):
-                                X.append([convertedEsblCarba, mics[i][1], numCategory, site, age])
+                                if postAnalysisNN:
+                                    X.append([convertedEsblCarba, mics[i][1], numCategory, site, age])
+                                else:
+                                    X.append([convertedEsblCarba, mics[i][1], numCategory])
                                 Y.append(mics[i][0])
                                 
                             if rowNum and rowNum == lineCount:
