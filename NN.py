@@ -35,15 +35,15 @@ from tensorflow.python.keras.callbacks import EarlyStopping
 from tensorflow.python.keras.callbacks import CSVLogger
 
 #Model path
-model_dir = "saved_models"
-log_dir = "logs"
-csv_dir = "csvs"
+model_dir = "NN/saved_models"
+log_dir = "NN/logs"
+csv_dir = "NN/csvs"
 
 
 def main():
     """
     Author Cory Kromer-Edwards
-    Edits by: ...
+    Edits by: Jace Neubaum
     The main method that will build and run the model.
     """
     parser = build_parser()
@@ -58,7 +58,7 @@ def main():
     if not os.path.exists(csv_dir):
         os.makedirs(csv_dir)
         
-    for drop_out in [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]:
+    for drop_out in [0.0, 0.2, 0.4, 0.6, 0.8]:
         for learning_rate in [0.0001, 0.001, 0.01, 0.1]:
             model_name = "model" + ",".join(str(x) for x in options.layers) + " d-" + str(drop_out) + " lr-" + str(learning_rate)
             
@@ -116,7 +116,7 @@ def main():
         	
             if not os.path.isfile(model_path):        
                 model = models.Sequential()
-                model.add(layers.Dense(options.layers[0], input_dim=3))
+                model.add(layers.Dense(options.layers[0], input_dim=5))
                 model.add(layers.BatchNormalization(axis=1))
                 model.add(layers.Activation("relu"))
                 model.add(layers.Dropout(drop_out))
@@ -174,7 +174,7 @@ def main():
             del model
             
             if options.debug > 1:
-                pred(1, model_path)
+                pred(1, model_path, True)
 
 
 

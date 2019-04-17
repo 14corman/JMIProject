@@ -30,14 +30,17 @@ def main():
     
     model_name = "model" + ",".join(str(x) for x in options.layers) + " d-" + str(options.dropout_prob) + " lr-" + str(options.learning_rate)
     
-    model_path = model_dir + "/" + model_name + ".h5"
-    
-    pred(options.num_subjects, model_path)
+    if options.post_model:
+        model_path = "NN/" + model_dir + "/" + model_name + ".h5"
+    else:
+        model_path = model_dir + "/" + model_name + ".h5"  
+        
+    pred(options.num_subjects, model_path, options.post_model)
         
         
 
 
-def pred(num_subjects, model_path):
+def pred(num_subjects, model_path, post=False):
     """
     Author Cory Kromer-Edwards
     Edits by: ...
@@ -55,7 +58,7 @@ def pred(num_subjects, model_path):
         for _ in range(num_subjects):
             print("")
             data_point = random.randint(1, 4300)
-            (X_subject, Y_subject) = load_dataset(False, data_point, True)
+            (X_subject, Y_subject) = load_dataset(False, data_point, True, postAnalysisNN=post)
             print("Looking at person on row: ", data_point + 1)
             prediction = model.predict(X_subject)
             for drug_id in range(len(X_subject)):
@@ -136,13 +139,17 @@ def build_parser():
     """
     parser = ArgumentParser()
     
+    parser.add_argument('-p', '--post_model', type=bool,
+                        dest='post_model', help='Use model that includes site and age',
+                        metavar='POST_MODEL', default=True)
+    
     parser.add_argument('-r', '--learning_rate', type=float,
                         dest='learning_rate', help='Learning rate',
                         metavar='LEARNING_RATE', default=0.001)
     
     parser.add_argument('-d', '--dropout_prob', type=float,
                         dest='dropout_prob', help='The keep probability in the dropout layer. (1=no drop out)',
-                        metavar='DROPOUT', default=0.5)
+                        metavar='DROPOUT', default=0.2)
     
     parser.add_argument('-l', '--layers', type=int,
                         dest='layers', help='The number of elements given is the number of hidden layers, and the \
