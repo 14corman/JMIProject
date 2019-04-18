@@ -8,6 +8,7 @@ from preprocessor import load_dataset
 import numpy as np
 import random
 import tensorflow as tf
+import sklearn.metrics as metrics
 
 #For F1 score
 from keras import backend as K
@@ -46,8 +47,8 @@ def pred(num_subjects, model_path, post=False):
     Edits by: ...
     The main method that will build and run the model.
     """
-    count = 0
-    count_right = 0
+    y_true = np.array([[]])
+    y_pred = np.array([[]])
     
     #Need to call initialize global variables in case running on GPU.
     with tf.Session() as sess:
@@ -61,17 +62,12 @@ def pred(num_subjects, model_path, post=False):
             (X_subject, Y_subject) = load_dataset(False, data_point, True, postAnalysisNN=post)
             print("Looking at person on row: ", data_point + 1)
             prediction = model.predict(X_subject)
-            for drug_id in range(len(X_subject)):
-                print("Drug id: ", X_subject[drug_id, 1])
-                print("Actual Y: ", Y_subject[drug_id])
-                print("Predicted max Y: ", np.argmax(prediction[drug_id]))
-                print("Predicted Y output: ", prediction[drug_id])
-                print("")
-                count += 1
-                if Y_subject[drug_id] == np.argmax(prediction[drug_id]):
-                    count_right += 1
-    
-    print("Acurracy: ", (count_right / count))
+            prediction = np.argmax(prediction, axis=1)
+            y_true = np.concatenate((y_true, Y_subject), axis=None)
+            y_pred = np.concatenate((y_pred, prediction), axis=None)
+        
+    print("Actual accuracy: ", metrics.accuracy_score(y_true, y_pred))
+    print("Actual f1 score: ", metrics.f1_score(y_true, y_pred, average="macro"))
 
 #Code found here: https://stackoverflow.com/a/45305384
 def recall(y_true, y_pred):
